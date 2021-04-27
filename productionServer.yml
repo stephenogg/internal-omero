@@ -253,15 +253,7 @@
       
                     
   roles:
-    - role: sco.lvm_partition
-      lvm_lvname: omero
-      lvm_lvmount: /OMERO
-      lvm_lvsize: "{{ second_volume_size_gb }}"
-      lvm_lvfilesystem: xfs
-      lvm_vgname: VolGroup00
-      lvm_vgdevice: "/dev/vdb"
-
-            
+         
     - role: ome.postgresql
       postgresql_databases:
       - name: omero
@@ -269,8 +261,7 @@
       - user: omero
         password: omero
         databases: [omero]
-        
-        
+               
 # Explicitly install ome.ice to create the symlinks
     - role: ome.ice
       ice_binaries_symlink_dest: "/usr/local/bin"
@@ -287,15 +278,7 @@
         - scipy
         # For "simple frap with figure" script
         - matplotlib
-        
-        
-    - role: ome.postgresql_backup
-      postgresql_backup_compress: true
-      postgresql_backup_dir: "/OMERO/backups/database"
-      postgresql_backup_filename_format: "nightly-omero-%Y%m%d-%H%M%S.pgdump.gz"
-      postgresql_backup_minimum_expected_size: 100000      
-        
-        
+                          
 #Install the OMERO.web into /opt/omero/web  
     - role: ome.omero_web
       vars:
@@ -379,36 +362,6 @@
         insertbefore: BOF
         line: "+:{{ omero_server_system_managedrepo_group }}:ALL"
 
-    - name: Create omero-monitoring, a restricted admin who can export prometheus data
-      shell: "omero user add -a omero-monitoring omero-monitoring omero-monitoring system  -P omero-monitoring --ignore-existing -s {{ host | quote }} -u {{ omero_user | quote }} --password {{ password | quote }}"
-      
-    - name: Retrieve omero-monitoring's omero userid
-      become: true
-      become_user: postgres
-      community.general.postgresql_query:
-        db: omero
-        query: "select id from experimenter where firstname = 'omero-monitoring'"
-      register: result
-      tags: test
-       
-    - name: Use omero-monitoroing's id to set restrictions to be a read-only light-admin
-      shell: "omero obj map-set Experimenter:{{result.query_result[0].id}} config AdminPrivilege:{{item}} false -s {{ host | quote }} -u {{ omero_user | quote }} --password {{ password | quote }}"
-      tags: test
-      with_items:
-        - Sudo
-        - WriteOwned
-        - WriteFile
-        - WriteManagedRepo
-        - DeleteOwned
-        - DeleteFile
-        - DeleteManagedRepo
-        - Chgrp
-        - Chown
-        - ModifyGroup
-        - ModifyUser
-        - ModifyGroupMembership
-        - WriteScriptRepo
-        - DeleteScriptRepo
 
     # (Total cores / 2), leaving some for WSGI
     - name: NGINX - Performance tuning - worker processes

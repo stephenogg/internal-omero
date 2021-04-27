@@ -1,0 +1,258 @@
+---
+# ansible-playbook -i <INVENTORY-DIR>/prod-hosts site.yml
+
+# New hosts are created in Compute Candada's openstack cloud
+# infrastructure. requires a named cloud "cc_arbutus_rep, cc_arbutus_default, or"
+# cc_arbutus_default_dev.
+# Defined in clouds.yaml file with authentication credentials specific
+# for that cloud/project. Create Instance with optional second disk mounted on
+# /dev/vdb to act as the OMERO binary repository.
+
+- name: Create/Configure UofA production instance
+  hosts: omero
+  tasks:
+    - name: create the instance in the cloud
+      import_role:
+        name: sco.create_instance
+      vars:
+        cloud: cc_arbutus_default_dev
+        create_second_volume: true
+        floating_ip: 206.12.92.91
+        flavour: "p8-12gb"
+        image: Ubuntu-20.04-Focal-x64-2020-12
+        #description: "University of Alberta's production OMERO server" - currently not used.
+        boot_volume_size: 200
+        server_name: "omero"
+        keypair: "SteveOKeyPairCCOMERO"
+        network: def-steveogg-dev-network
+        security_group_list:
+          - default
+          - web
+          - ssh
+          - ping
+          - omero
+        second_volume_name: "binary_repository"
+        second_volume_size_gb: 4000
+        second_volume_description: "mount this on /OMERO to act as the binary repository"
+        device: "/dev/vdb"
+      delegate_to: localhost  
+        
+    - name: configure the newly created instance
+      import_playbook: productionServer.yml
+        vars:
+          fqdn: "206-12-92-91.cloud.computecanada.ca"
+
+- name: Create Training Server
+  hosts: omero_dev
+  tasks:
+    - name: create training server instance"
+      import_role:
+        name: sco.create_instance
+      vars:
+        cloud: cc_arbutus_default_dev
+        create_second_volume: false     
+        floating_ip: 206.12.95.221
+        flavour: "p4-6gb"
+        image: Ubuntu-20.04-Focal-x64-2020-12
+        boot_volume_size: 50
+        server_name: "omero_training"
+        #description: "OMERO server used for training workshops" -currently not used
+        keypair: "SteveOKeyPairCCOMERO"
+        network: "def-steveogg-dev-network"
+        security_group_list:
+          - default
+          - web
+          - ssh
+          - ping
+          - omero
+#        second_volume_name: "binary_repository"
+#        second_volume_description: "mount this on /OMERO to act as the binary repository"
+#        second_volume_size_gb: 50
+#        device: "/dev/vdb"
+      delegate_to: localhost  
+        
+    - name: configure the newly created instance as a training server
+      import_playbook: trainingServer.yml
+      vars:
+        fqdn: "206-12-95-221.cloud.computecanada.ca"
+        
+#Create National Production Server
+- name: Create National OMERO Production Server
+  hosts: national_omero
+  tasks:
+    - name: create the server instance in the cloud
+      import_role:
+        name: sco.create_instance
+      vars:
+        cloud: cc_arbutus_rpp
+        create_second_volume: true     
+        floating_ip: 206.12.94.73
+        flavour: "p16-32gb"
+        image: Ubuntu-20.04-Focal-x64-2020-12
+        server_name: "national_omero"
+        boot_volume_size: 200
+        #server_description: "Canadian National OMERO production server" - currently not used
+        keypair: "SteveOKeyPairCCOMERO"
+        network: "rpp-steveogg-network"
+        second_volume_name: "binary_repository"     
+        second_volume_size_gb: 20000
+        second_volume_description: "Volume to use as the OMERO binary repository"
+        device: "/dev/vdb"
+        security_group_list:
+          - default
+          - web
+          - ping
+          - omero
+          - ssh
+      delegate_to: localhost  
+        
+    - name: configure the national production server 
+## Configure National OMERO.server. This is currently
+## a one-node server hosting the db_server, omero_server and web_server from 
+## a single instance.
+    import_playbook: productionServer.yml
+    vars:
+      fqdn: "206-12-94-73.cloud.computecanada.ca"
+      
+      
+##Create Backup Server
+- name: Create backup server
+  hosts: backup_server
+  tasks:
+    - name: Create backup server instance
+      import_role:
+        name: sco.create_instance
+      vars:
+        cloud: cc_arbutus_rpp
+        create_second_volume: true     
+        floating_ip: 206.12.94.9
+        flavour: "p8-16gb"
+        image: Ubuntu-20.04-Focal-x64-2020-12
+        server_name: "omero_backup"
+        boot_volume_size: 200
+        #description: "server to act as backup for OMERO instance on 206.12.94.73" - currently not used
+        keypair: "SteveOKeyPairCCOMERO"
+        network: "rpp-steveogg-network"
+        second_volume_name: "backup"     
+        second_volume_size_gb: 20000
+        second_volume_description: "Volume backup omero binary repository on 206.12.94.73"
+        device: "/dev/vdb"
+        security_group_list:
+          - default
+          - ssh
+          - ping
+      delegate_to: localhost    
+          
+    - name: configure newly created backup instance 
+      import_playbook: rdiffBackup.yml
+      vars:
+        rdiff_backup_frequency: daily # or weekly or monthly
+        second_volume_size_gb: 20000
+
+# Internal monitoring configuration for all OMERO servers
+# Currently (20210430) not enough resources to separate the grafana and prometheus servers
+# Therefore create one machine and provision with both apps.
+
+#- name: Create Prometheus Server
+#  hosts: prometheus
+#  gather_facts: false
+#  tasks:
+#    - name: Create instance for prometheus and loki
+#      import_role:
+#        name: sco.create_instance
+#      vars:
+#        cloud: cc_arbutus_default
+#        create_second_volume: false     
+#        floating_ip: 206.12.94.110
+#        flavour: "p4-6gb"
+#        image: Ubuntu-20.04-Focal-x64-2020-12
+#        server_name: "prometheus"
+#        boot_volume_size: 9500
+#        #description: "" - currently not used
+#        keypair: "SteveOKeyPairCCOMERO"
+#        network: "def-steveogg-network"
+#        security_group_list:
+#          - default
+#          - ssh
+#          - ping
+#      delegate_to: localhost    
+#          
+#    - name: Install Prometheus, alertmanager, blackbox-exporter and loki
+#      import_playbook: configurePrometheus.yml
+
+- name: Create Prometheus/Grafana server
+  hosts: grafana
+  gather_facts: false
+  tasks:
+    - name: create instance to use as grafana server
+      import_role:
+        name: sco.create_instance
+      vars:
+        cloud: cc_arbutus_default
+        create_second_volume: true     
+        floating_ip: 206.12.92.26
+        flavour: "p16-24gb"
+        image: Ubuntu-20.04-Focal-x64-2020-12
+        server_name: "grafana"
+        boot_volume_size: 500
+        #description: "" - currently not used
+        keypair: "SteveOKeyPairCCOMERO"
+        network: "def-steveogg-network"
+        second_volume_name: "data"     
+        second_volume_size_gb: 9800
+        second_volume_description: "mount to provide data directory for prometheus"
+        device: "/dev/vdb"
+        security_group_list:
+          - default
+          - ssh
+          - web
+          - ping
+      delegate_to: localhost    
+          
+    - name: install grafana, get certificate to deploy on grafana on https.
+      import_playbook: configureGrafana.yml
+      
+    - name: install prometheus, alertmanager, blackboxexporter
+      import_playbook: configPrometheus.yml
+        
+    
+- name: Configure instances for monitoring
+  hosts: [monitored]
+  tasks:
+    - name: install node exporter
+      import_role:
+        name: couldalchemy.node_exporter
+      become: true
+
+- name: install exporters on omero servers
+  hosts: [omero-server]
+  tasks:
+    - name: install jmx exporter
+      import_role:
+        name: ome.prometheus_jmx
+        
+    - name: role for handlers and {{ omero_common_basedir }}
+      import_role:
+        name: ome.omero_common
+        
+    - name: omero exporter
+      import_role:
+        name: sco.omero_prometheus_exporter
+      vars:
+        omero_prometheus_exporter_omero_user: omero-monitoring
+        omero_prometheus_exporter_omero_password: omero-monitoring
+        
+    - name: omero-server prometheus jmx agents
+      become: yes
+      copy:
+        dest: "{{ omero_common_basedir }}/server/config/prometheus.omero"
+        src: omero-server-config-prometheus.omero
+        mode: 0644
+      notify:
+      - restart omero-server   
+       
+        
+        
+       
+  
+    

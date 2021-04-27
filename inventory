@@ -1,0 +1,47 @@
+[all:vars]
+ansible_user=ubuntu
+# ssh key
+ansible_ssh_private_key_file=/Volumes/GoogleDrive/My Drive/P/OMEROCC/SteveOPrivateKeyCCOMERO.priv.pem
+
+
+[omero]
+206.12.92.91
+
+[omero_dev]
+206.12.95.221
+
+[national_omero]
+206.12.94.73 
+
+[backup_server]
+206.12.94.9
+
+[grafana]
+206.12.92.26
+
+# [prometheus]
+# 206.12.94.110
+
+[monitored]
+206.12.92.91
+206.12.95.221
+206.12.94.73
+206.12.94.9
+206.12.92.26
+# 206.12.94.110
+
+[omero_web]
+206.12.92.91
+206.12.95.221
+206.12.94.73
+
+[omero_server]
+206.12.92.91
+206.12.95.221
+206.12.94.73
+
+[omero_db]
+206.12.92.91
+206.12.95.221
+206.12.94.73
+

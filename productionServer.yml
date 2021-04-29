@@ -19,6 +19,10 @@
     omero_iviewer_release: "{{ omero_iviewer_release_override | default('0.10.2') }}"
     omero_mapr_release: "{{ omero_mapr_release_override | default('0.4.1') }}"
     omero_parade_release: "{{ omero_parade_release_override | default('0.2.1') }}"
+    ome_training_scripts_release: "{{ ome_training_scripts_release_override | default('0.7.3') }}"
+    omero_webtagging_autotag_release: "{{ omero_webtagging_autotag_release_override | default('3.1.0') }}"
+    omero_webtagging_tagsearch_release: "{{ omero_webtagging_tagsearch_release_override | default('3.1.0') }}"
+    
     # The os_system_users_password default is "ome".
     # You may wish to change this variable,
     # or override it by defining the private variable os_system_users_password_override.
@@ -111,9 +115,6 @@
       omero.web.viewer.view: omero_iviewer.views.index
      
 
-    ome_training_scripts_release: "{{ ome_training_scripts_release_override | default('0.7.3') }}"
-    omero_webtagging_autotag_release: "{{ omero_webtagging_autotag_release_override | default('3.1.0') }}"
-    omero_webtagging_tagsearch_release: "{{ omero_webtagging_tagsearch_release_override | default('3.1.0') }}"
     omero_web_config_set:
       omero.web.nginx_server_extra_config:
         - 'include /etc/nginx/conf.d-nested-includes/*.conf;'
@@ -213,18 +214,34 @@
           - openssl
         state: present
         
-    - name: Update all installed packages
+
+    - name: Update apt repo and cache on all Debian/Ubuntu boxes
       become: true
       apt:
-        name: "*"
-        state: latest
-      register: packages_updated
-        
-    - name: Reboot the machine
+        update_cache: true
+        force_apt_get: true
+        cache_valid_time: 3600
+
+    - name: Upgrade all packages on servers
+      become: true
+      apt:
+        upgrade: dist
+        force_apt_get: true
+
+    - name: Check if a reboot is needed on all servers
+      register: reboot_required_file
+      stat: path=/var/run/reboot-required get_md5=no
+
+    - name: Reboot the box if kernel updated
       become: true
       reboot:
-      when: packages_updated.changed        
-
+        msg: "Reboot initiated by Ansible for kernel updates"
+        connect_timeout: 5
+        reboot_timeout: 300
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: uptime
+      when: reboot_required_file.stat.exists
 
     # Since Nginx isn't installed until later the directories are created in advance
     - name: Create nginx include directories
@@ -282,13 +299,13 @@
 #Install the OMERO.web into /opt/omero/web  
     - role: ome.omero_web
       vars:
-      omero_web_systemd_limit_nofile: 16384
+        omero_web_systemd_limit_nofile: 16384
     
     - role: sco.letsencrypt
       vars:
         https_letsencrypt_enabled: true
         https_certificate_domain: "{{ fqdn }}"
-        letsencrypt_email: "sogg@ualberta.ca"
+        letsencrypt_email: "touret@ualberta.ca"
         https_letsencrypt_cert_path: "/etc/letsencrypt/live/{{ fqdn | default('localhost') }}"
     
   tasks:

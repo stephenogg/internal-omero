@@ -8,14 +8,14 @@
 # for that cloud/project. Create Instance with optional second disk mounted on
 # /dev/vdb to act as the OMERO binary repository.
 
-- name: Create/Configure UofA internal instance for NicoT
+- name: Configure UofA internal instance for NicoT
   hosts: omero
   tasks:
         
     - name: configure the newly created instance
       import_playbook: productionServer.yml
         vars:
-          fqdn: "omero.med.ualberta.ca"
+          fqdn: "touret-omero.med.ualberta.ca"
        
         
         

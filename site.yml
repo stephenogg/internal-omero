@@ -9,7 +9,7 @@
 # /dev/vdb to act as the OMERO binary repository.
 
 - name: Configure UofA internal instance for NicoT
-  hosts: omero
+  hosts: internal_omero
   tasks:
         
     - name: configure the newly created instance
